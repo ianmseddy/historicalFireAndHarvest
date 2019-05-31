@@ -22,11 +22,15 @@ For help writing in R Markdown, see http://rmarkdown.rstudio.com/.
 
 ```{r module_usage}
 library(SpaDES)
+library(raster)
 
-setPaths(modulePath = file.path("C:/Ian/Git"))
+studyArea <- shapefile("C:/Ian/Data/Forestry/FtStJohn_TSA.shp")
+
+setPaths(modulePath = file.path("C:/Ian/Git"),
+         cachePath = "cache")
 getPaths() # shows where the 4 relevant paths are
 
-times <- list(start = 0, end = 10)
+times <- list(start = 1985, end = 1990)
 
 parameters <- list(
   #.progress = list(type = "text", interval = 1), # for a progress bar
@@ -35,7 +39,7 @@ parameters <- list(
   #module2 = list(param1 = value1, param2 = value2)
 )
 modules <- list("historicalFireAndHarvest")
-objects <- list()
+objects <- list(studyArea = studyArea)
 inputs <- list()
 outputs <- list()
 

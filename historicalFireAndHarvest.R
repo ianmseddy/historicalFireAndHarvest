@@ -5,32 +5,42 @@
 # in R packages. If exact location is required, functions will be: sim$<moduleName>$FunctionName
 defineModule(sim, list(
   name = "historicalFireAndHarvest",
-  description = NA, #"insert module description here",
+  description = "a module that uses the high resolution national forest change product by White et al. (2017) to annually reconstruct past disturbances", #"insert module description here",
   keywords = NA, # c("insert key words here"),
-  authors = c(person(c("First", "Middle"), "Last", email = "email@example.com", role = c("aut", "cre"))),
+  authors = c(person(c("Ian"), "Eddy", email = "ian.eddy@canada.ca", role = c("aut", "cre"))),
   childModules = character(0),
   version = list(SpaDES.core = "0.2.5.9002", historicalFireAndHarvest = "0.0.1"),
   spatialExtent = raster::extent(rep(NA_real_, 4)),
-  timeframe = as.POSIXlt(c(NA, NA)),
+  timeframe = as.POSIXlt(c(1985, 2011)),
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = list("README.txt", "historicalFireAndHarvest.Rmd"),
-  reqdPkgs = list(),
+  reqdPkgs = list("raster", "data.table"),
   parameters = rbind(
     #defineParameter("paramName", "paramClass", value, min, max, "parameter description"),
-    defineParameter(".plotInitialTime", "numeric", NA, NA, NA, "This describes the simulation time at which the first plot event should occur"),
-    defineParameter(".plotInterval", "numeric", NA, NA, NA, "This describes the simulation time interval between plot events"),
-    defineParameter(".saveInitialTime", "numeric", NA, NA, NA, "This describes the simulation time at which the first save event should occur"),
-    defineParameter(".saveInterval", "numeric", NA, NA, NA, "This describes the simulation time interval between save events"),
-    defineParameter(".useCache", "logical", FALSE, NA, NA, "Should this entire module be run with caching activated? This is generally intended for data-type modules, where stochasticity and time are not relevant")
+    defineParameter(".useCache", "logical", FALSE, NA, NA, "Should this entire module be run with caching activated? This is generally intended for data-type modules, where stochasticity and time are not relevant"),
+    defineParameter("firstYear", "numeric", 1985, 1985, 2010, "The first year for which to generate disturbance layers"),
+    defineParameter("lastYear", "numeric", 2011, 1986, 2011, "the last year for which to generate disturbance layers"),
+    defineParameter(name = "includeLowConfidence", class = "logical", TRUE, NA, NA,
+                    desc = "include disturbance classifications of lower confidence"),
+    defineParameter(name = "includeHarvest", class = "logical", TRUE, NA, NA, "output annual harvest raster"),
+    defineParameter(name = "includeFire", class = "logical", TRUE, NA, NA, "output annual fire raster")
   ),
   inputObjects = bind_rows(
-    #expectsInput("objectName", "objectClass", "input object description", sourceURL, ...),
-    expectsInput(objectName = NA, objectClass = NA, desc = NA, sourceURL = NA)
+    expectsInput(objectName = "studyArea", objectClass = "SpatialPolygonsDataFrame", desc = "study Area to crop rasters"),
+    expectsInput(objectName = "rasterToMatch", objectClass = "RasterLayer",
+                 desc = "Annual historical disturbances output as a raster with identical properties to rasterToMatch"),
+    expectsInput(objectName = "disturbanceYear", objectClass = "RasterLayer",
+                 desc = "filepath to a raster layer representing year of disturbance occurence",
+                 sourceURL = "https://opendata.nfis.org/downloads/forest_change/C2C_change_year_1985_2011.zip"),
+    expectsInput(objectName = "disturbanceType", objectClass = "RasterLayer",
+                 desc = "filepath to a raster layer representing type of forest disturbance",
+                 sourceURL = "https://opendata.nfis.org/downloads/forest_change/C2C_change_type_1985_2011.zip")
   ),
   outputObjects = bind_rows(
     #createsOutput("objectName", "objectClass", "output object description", ...),
-    createsOutput(objectName = NA, objectClass = NA, desc = NA)
+    createsOutput(objectName = 'rstCurrentBurn', objectClass = "RasterLayer", desc = "annual historical burned area"),
+    createsOutput(objectName = 'rstCurrentHarvest', objectClass = "RasterLayer", desc = "annual historical harvest")
   )
 ))
 
@@ -47,64 +57,27 @@ doEvent.historicalFireAndHarvest = function(sim, eventTime, eventType) {
       # do stuff for this event
       sim <- Init(sim)
 
-      # schedule future event(s)
-      sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "historicalFireAndHarvest", "plot")
-      sim <- scheduleEvent(sim, P(sim)$.saveInitialTime, "historicalFireAndHarvest", "save")
+      sim <- scheduleEvent(sim, time(sim), "historicalFireAndHarvest", "buildDisturbanceRasters")
+
     },
-    plot = {
+
+    buildDisturbanceRasters = {
       # ! ----- EDIT BELOW ----- ! #
-      # do stuff for this event
+      if (is.na(P(sim)$startYear)) stop(paste0("Please supply a real year as the start year for ", currentModule(sim)))
 
-      #plotFun(sim) # uncomment this, replace with object to plot
-      # schedule future event(s)
 
-      # e.g.,
-      #sim <- scheduleEvent(sim, time(sim) + P(sim)$.plotInterval, "historicalFireAndHarvest", "plot")
+      if (time(sim) < P(sim)$firstYear) {
+        sim <- scheduleEvent(sim, P(sim)$firstYear, "historicalFireAndHarvest", "buildDisturbanceRasters")
+      } else if (time(sim) < P(sim)$lastYear) {
 
-      # ! ----- STOP EDITING ----- ! #
+        sim <- buildDisturbance(sim)
+
+        sim <- scheduleEvent(sim, time(sim) + 1, "historicalFireAndHarvest", "buildDisturbanceRasters")
+
+      }
+
     },
-    save = {
-      # ! ----- EDIT BELOW ----- ! #
-      # do stuff for this event
 
-      # e.g., call your custom functions/methods here
-      # you can define your own methods below this `doEvent` function
-
-      # schedule future event(s)
-
-      # e.g.,
-      # sim <- scheduleEvent(sim, time(sim) + P(sim)$.saveInterval, "historicalFireAndHarvest", "save")
-
-      # ! ----- STOP EDITING ----- ! #
-    },
-    event1 = {
-      # ! ----- EDIT BELOW ----- ! #
-      # do stuff for this event
-
-      # e.g., call your custom functions/methods here
-      # you can define your own methods below this `doEvent` function
-
-      # schedule future event(s)
-
-      # e.g.,
-      # sim <- scheduleEvent(sim, time(sim) + increment, "historicalFireAndHarvest", "templateEvent")
-
-      # ! ----- STOP EDITING ----- ! #
-    },
-    event2 = {
-      # ! ----- EDIT BELOW ----- ! #
-      # do stuff for this event
-
-      # e.g., call your custom functions/methods here
-      # you can define your own methods below this `doEvent` function
-
-      # schedule future event(s)
-
-      # e.g.,
-      # sim <- scheduleEvent(sim, time(sim) + increment, "historicalFireAndHarvest", "templateEvent")
-
-      # ! ----- STOP EDITING ----- ! #
-    },
     warning(paste("Undefined event type: '", current(sim)[1, "eventType", with = FALSE],
                   "' in module '", current(sim)[1, "moduleName", with = FALSE], "'", sep = ""))
   )
@@ -116,79 +89,130 @@ doEvent.historicalFireAndHarvest = function(sim, eventTime, eventType) {
 
 ### template initialization
 Init <- function(sim) {
-  # # ! ----- EDIT BELOW ----- ! #
-
-  # ! ----- STOP EDITING ----- ! #
 
   return(invisible(sim))
 }
 
-### template for save events
-Save <- function(sim) {
-  # ! ----- EDIT BELOW ----- ! #
-  # do stuff for this event
-  sim <- saveFiles(sim)
-
-  # ! ----- STOP EDITING ----- ! #
-  return(invisible(sim))
-}
-
-### template for plot events
-plotFun <- function(sim) {
-  # ! ----- EDIT BELOW ----- ! #
-  # do stuff for this event
-  #Plot(sim$object)
-
-  # ! ----- STOP EDITING ----- ! #
-  return(invisible(sim))
-}
 
 ### template for your event1
-Event1 <- function(sim) {
-  # ! ----- EDIT BELOW ----- ! #
-  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
-  # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
-  # sim$event1Test2 <- 999 # for dummy unit test
+buildDisturbance <- function(sim) {
+
+  if (P(sim)$includeHarvest) {
+    if (P(sim)$includeLowConfidence) {
+      valsToUse <- c(2,4,6)
+    } else {
+      valsToUse <- 2
+    }
+    disturbanceYear <- sim$disturbanceYear
+    yearDT <- setDT(list(getValues(disturbanceYear)))
+    yearDT[!V1 == time(sim) - 1900, V1 := 0]
+    yearDT[!V1 == 0, V1 := 1]
+    #all disturbances at time(sim) now 1
+
+    disturbanceType <- sim$disturbanceType
+    browser()
+    typeDT <- setDT(list(getValues(disturbanceType)))
+    #gets rid of NAs....
+    typeDT[!V1 %in% valsToUse, V1 := 0]
+    typeDT[V1 %in% valsToUse, V1 := 1]
+    #all harvest disturbances now 1
+
+    typeDT$V1[yearDT$V1 == 0] <- 0
+    #all harvest that isn't time sim is now 0
+
+    disturbanceType <- setValues(disturbanceType, typeDT$V1)
+    sim$rstCurrentHarvest <- postProcess(disturbanceType,
+                                         rasterToMatch = sim$rasterToMatch,
+                                         method = "ngb",
+                                         studyArea = sim$studyArea,
+                                         filename2 = NULL)
+    names(sim$rstCurrentHarvest) <- time(sim)
+
+  }
+
+  if (P(sim)$includeFire) {
+    if (P(sim)$includeLowConfidence) {
+      valsToUse <- c(1,3,5)
+    } else {
+      valsToUse <- 1
+    }
+    disturbanceYear <- sim$disturbanceYear
+    yearDT <- setDT(list(getValues(disturbanceYear)))
+    yearDT[!V1 == time(sim) - 1900, V1 := 0]
+    yearDT[!V1 == 0, V1 := 1]
+    #all disturbances at time(sim) now 1
+
+    disturbanceType <- sim$disturbanceType
+    typeDT <- setDT(list(getValues(disturbanceType)))
+    #gets rid of NAs....
+    typeDT[!V1 %in% valsToUse, V1 := 0]
+    typeDT[V1 %in% valsToUse, V1 := 1]
+    #all harvest disturbances now 1
+
+    typeDT$V1[yearDT$V1 == 0] <- 0
+    #all harvest that isn't time sim is now 0
+
+    disturbanceType <- setValues(disturbanceType, typeDT$V1)
+    sim$rstCurrentBurn <- postProcess(disturbanceType,
+                                      rasterToMatch = sim$rasterToMatch,
+                                      method = "ngb",
+                                      studyArea = sim$studyArea,
+                                      filename2 = NULL)
+    names(sim$rstCurrentBurn) <- time(sim)
+  }
 
 
-  # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
 }
 
-### template for your event2
-Event2 <- function(sim) {
-  # ! ----- EDIT BELOW ----- ! #
-  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
-  # sim$event2Test1 <- " this is test for event 2. " # for dummy unit test
-  # sim$event2Test2 <- 777  # for dummy unit test
-
-
-  # ! ----- STOP EDITING ----- ! #
-  return(invisible(sim))
-}
 
 .inputObjects <- function(sim) {
-  # Any code written here will be run during the simInit for the purpose of creating
-  # any objects required by this module and identified in the inputObjects element of defineModule.
-  # This is useful if there is something required before simulation to produce the module
-  # object dependencies, including such things as downloading default datasets, e.g.,
-  # downloadData("LCC2005", modulePath(sim)).
-  # Nothing should be created here that does not create a named object in inputObjects.
-  # Any other initiation procedures should be put in "init" eventType of the doEvent function.
-  # Note: the module developer can check if an object is 'suppliedElsewhere' to
-  # selectively skip unnecessary steps because the user has provided those inputObjects in the
-  # simInit call, or another module will supply or has supplied it. e.g.,
-  # if (!suppliedElsewhere('defaultColor', sim)) {
-  #   sim$map <- Cache(prepInputs, extractURL('map')) # download, extract, load file from url in sourceURL
-  # }
 
   #cacheTags <- c(currentModule(sim), "function:.inputObjects") ## uncomment this if Cache is being used
-  dPath <- asPath(getOption("reproducible.destinationPath", dataPath(sim)), 1)
+  dPath <- dataPath(sim)
   message(currentModule(sim), ": using dataPath '", dPath, "'.")
 
-  # ! ----- EDIT BELOW ----- ! #
+  if (!suppliedElsewhere("studyArea", sim)) {
+    message("study area not supplied. Using random polygon in Alberta")
+    #TODO: remove LandR once this is confirmed working
+    studyArea <- LandR::randomStudyArea(size = 15000000000, seed = 23654)
+    sim$studyArea <- studyArea
+  }
 
-  # ! ----- STOP EDITING ----- ! #
+  if (!suppliedElsewhere("rasterToMatch", sim)) {
+    message("rasterToMatch not supplied. generating from LCC2005 using studyArea CRS")
+
+    sim$rasterToMatch <- LandR::prepInputsLCC(year = 2005,
+                                          destinationPath = dataPath(sim),
+                                          studyArea = sim$studyArea,
+                                          useSAcrs = TRUE,
+                                          filename2 = TRUE,
+                                          overwrite = TRUE,
+                                          userTags = c("cacheTags", "rasterToMatch"))
+  }
+
+  if (!suppliedElsewhere("disturbanceYear", sim)){
+    sim$disturbanceYear <- Cache(prepInputs, url = extractURL(objectName = "disturbanceYear", sim),
+                                 targetFile = "C2C_change_year_1985_2011.tif",
+                                 destinationPath = dPath,
+                                 studyArea = sim$studyArea,
+                                 useSAcrs = TRUE,
+                                 filename2 = TRUE,
+                                 userTags = c("disturbanceYear", currentModule(sim)),
+                                 overwrite = TRUE)
+  }
+
+  if (!suppliedElsewhere("disturbanceType", sim)) {
+
+    sim$disturbanceType <- Cache(prepInputs, url = extractURL(objectName = "disturbanceType", sim),
+                                 targetFile = "C2C_change_type_1985_2011.tif",
+                                 destinationPath = dPath,
+                                 studyArea = sim$studyArea,
+                                 useSAcrs = TRUE,
+                                 userTags = c("disturbanceType", currentModule(sim)),
+                                 overwrite = TRUE)
+  }
+
   return(invisible(sim))
 }
 ### add additional events as needed by copy/pasting from above
