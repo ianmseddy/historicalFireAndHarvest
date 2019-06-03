@@ -30,7 +30,7 @@ setPaths(modulePath = file.path("C:/Ian/Git"),
          cachePath = "cache")
 getPaths() # shows where the 4 relevant paths are
 
-times <- list(start = 1985, end = 1990)
+times <- list(start = 1985, end = 1985)
 
 parameters <- list(
   #.progress = list(type = "text", interval = 1), # for a progress bar

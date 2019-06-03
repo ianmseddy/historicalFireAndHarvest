@@ -11,7 +11,7 @@ defineModule(sim, list(
   childModules = character(0),
   version = list(SpaDES.core = "0.2.5.9002", historicalFireAndHarvest = "0.0.1"),
   spatialExtent = raster::extent(rep(NA_real_, 4)),
-  timeframe = as.POSIXlt(c(1985, 2011)),
+  timeframe = as.POSIXlt(c(NA, NA)),
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = list("README.txt", "historicalFireAndHarvest.Rmd"),
@@ -63,7 +63,7 @@ doEvent.historicalFireAndHarvest = function(sim, eventTime, eventType) {
 
     buildDisturbanceRasters = {
       # ! ----- EDIT BELOW ----- ! #
-      if (is.na(P(sim)$startYear)) stop(paste0("Please supply a real year as the start year for ", currentModule(sim)))
+      if (is.na(P(sim)$firstYear)) stop(paste0("Please supply a real year as the start year for ", currentModule(sim)))
 
 
       if (time(sim) < P(sim)$firstYear) {
@@ -103,30 +103,16 @@ buildDisturbance <- function(sim) {
     } else {
       valsToUse <- 2
     }
-    disturbanceYear <- sim$disturbanceYear
-    yearDT <- setDT(list(getValues(disturbanceYear)))
-    yearDT[!V1 == time(sim) - 1900, V1 := 0]
-    yearDT[!V1 == 0, V1 := 1]
-    #all disturbances at time(sim) now 1
+    sim$rstCurrentHarvest <- Cache(reclassifyRasters,
+                                   disturbanceType = sim$disturbanceType,
+                                   disturbanceYear = sim$disturbanceYear,
+                                   time = time(sim),
+                                   types = valsToUse,
+                                   rtm = sim$rasterToMatch,
+                                   studyArea = sim$studyArea,
+                                   userTags = c("historicalFireAndHarvest", "harvest", time(sim)))
 
-    disturbanceType <- sim$disturbanceType
-    browser()
-    typeDT <- setDT(list(getValues(disturbanceType)))
-    #gets rid of NAs....
-    typeDT[!V1 %in% valsToUse, V1 := 0]
-    typeDT[V1 %in% valsToUse, V1 := 1]
-    #all harvest disturbances now 1
-
-    typeDT$V1[yearDT$V1 == 0] <- 0
-    #all harvest that isn't time sim is now 0
-
-    disturbanceType <- setValues(disturbanceType, typeDT$V1)
-    sim$rstCurrentHarvest <- postProcess(disturbanceType,
-                                         rasterToMatch = sim$rasterToMatch,
-                                         method = "ngb",
-                                         studyArea = sim$studyArea,
-                                         filename2 = NULL)
-    names(sim$rstCurrentHarvest) <- time(sim)
+    names(sim$rstCurrentHarvest) <- paste0("Year", time(sim))
 
   }
 
@@ -136,33 +122,47 @@ buildDisturbance <- function(sim) {
     } else {
       valsToUse <- 1
     }
-    disturbanceYear <- sim$disturbanceYear
-    yearDT <- setDT(list(getValues(disturbanceYear)))
-    yearDT[!V1 == time(sim) - 1900, V1 := 0]
-    yearDT[!V1 == 0, V1 := 1]
-    #all disturbances at time(sim) now 1
 
-    disturbanceType <- sim$disturbanceType
-    typeDT <- setDT(list(getValues(disturbanceType)))
-    #gets rid of NAs....
-    typeDT[!V1 %in% valsToUse, V1 := 0]
-    typeDT[V1 %in% valsToUse, V1 := 1]
-    #all harvest disturbances now 1
 
-    typeDT$V1[yearDT$V1 == 0] <- 0
-    #all harvest that isn't time sim is now 0
+    sim$rstCurrentBurn <- Cache(reclassifyRasters,
+                                disturbanceType = sim$disturbanceType,
+                                disturbanceYear = sim$disturbanceYear,
+                                time = time(sim),
+                                types = valsToUse,
+                                rtm = sim$rasterToMatch,
+                                studyArea = sim$studyArea,
+                                userTags = c("historicalFireAndHarvest", "burn", time(sim)))
 
-    disturbanceType <- setValues(disturbanceType, typeDT$V1)
-    sim$rstCurrentBurn <- postProcess(disturbanceType,
-                                      rasterToMatch = sim$rasterToMatch,
-                                      method = "ngb",
-                                      studyArea = sim$studyArea,
-                                      filename2 = NULL)
-    names(sim$rstCurrentBurn) <- time(sim)
-  }
-
+    names(sim$rstCurrentBurn) <- paste0("Year", time(sim))
+    }
 
   return(invisible(sim))
+}
+
+
+reclassifyRasters <- function(disturbanceType, disturbanceYear, time, types, rtm, studyArea) {
+
+  yearDT <- setDT(list(getValues(disturbanceYear)))
+  yearDT[!V1 == time - 1900, V1 := 0]
+  yearDT[!V1 == 0, V1 := 1]
+  #all disturbances at time(sim) now 1
+
+  typeDT <- setDT(list(getValues(disturbanceType)))
+  #gets rid of NAs....
+  typeDT[!V1 %in% types, V1 := 0]
+  typeDT[V1 %in% types, V1 := 1]
+  #all valsToUse now 1
+
+  typeDT$V1[yearDT$V1 == 0] <- 0
+  #all valsToUse that aren't time sim are now zero
+
+  disturbanceType <- setValues(disturbanceType, typeDT$V1)
+  resampledRas <- postProcess(disturbanceType,
+                                    rasterToMatch = rtm,
+                                    method = "ngb",
+                                    studyArea = studyArea,
+                                    filename2 = NULL)
+  return(resampledRas)
 }
 
 
@@ -196,7 +196,6 @@ buildDisturbance <- function(sim) {
                                  targetFile = "C2C_change_year_1985_2011.tif",
                                  destinationPath = dPath,
                                  studyArea = sim$studyArea,
-                                 useSAcrs = TRUE,
                                  filename2 = TRUE,
                                  userTags = c("disturbanceYear", currentModule(sim)),
                                  overwrite = TRUE)
@@ -208,7 +207,6 @@ buildDisturbance <- function(sim) {
                                  targetFile = "C2C_change_type_1985_2011.tif",
                                  destinationPath = dPath,
                                  studyArea = sim$studyArea,
-                                 useSAcrs = TRUE,
                                  userTags = c("disturbanceType", currentModule(sim)),
                                  overwrite = TRUE)
   }
