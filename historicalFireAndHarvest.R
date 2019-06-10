@@ -24,7 +24,9 @@ defineModule(sim, list(
     defineParameter(name = "includeLowConfidence", class = "logical", TRUE, NA, NA,
                     desc = "include disturbance classifications of lower confidence"),
     defineParameter(name = "includeHarvest", class = "logical", TRUE, NA, NA, "output annual harvest raster"),
-    defineParameter(name = "includeFire", class = "logical", TRUE, NA, NA, "output annual fire raster")
+    defineParameter(name = "includeFire", class = "logical", TRUE, NA, NA, "output annual fire raster"),
+    defineParameter(name = ".plotInitialTime", class = 'numeric', NA, NA, NA, "time of first plot"),
+    defineParameter(name = ".plotInterval", class = 'numeric', 1, NA, NA, "interval between plot events")
   ),
   inputObjects = bind_rows(
     expectsInput(objectName = "studyArea", objectClass = "SpatialPolygonsDataFrame", desc = "study Area to crop rasters"),
@@ -51,31 +53,35 @@ doEvent.historicalFireAndHarvest = function(sim, eventTime, eventType) {
   switch(
     eventType,
     init = {
-      ### check for more detailed object dependencies:
-      ### (use `checkObject` or similar)
 
-      # do stuff for this event
       sim <- Init(sim)
 
-      sim <- scheduleEvent(sim, time(sim), "historicalFireAndHarvest", "buildDisturbanceRasters")
+      sim <- scheduleEvent(sim, P(sim)$firstYear, "historicalFireAndHarvest", "buildDisturbanceRasters")
+
+      sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "historicalFireAndHarvest", "plot")
+      Plot(sim$rasterToMatch)
 
     },
 
     buildDisturbanceRasters = {
-      # ! ----- EDIT BELOW ----- ! #
-      if (is.na(P(sim)$firstYear)) stop(paste0("Please supply a real year as the start year for ", currentModule(sim)))
-
-
-      if (time(sim) < P(sim)$firstYear) {
-        sim <- scheduleEvent(sim, P(sim)$firstYear, "historicalFireAndHarvest", "buildDisturbanceRasters")
-      } else if (time(sim) < P(sim)$lastYear) {
-
-        sim <- buildDisturbance(sim)
-
+      sim <- buildDisturbance(sim)
+      if (time(sim) < P(sim)$lastYear) {
         sim <- scheduleEvent(sim, time(sim) + 1, "historicalFireAndHarvest", "buildDisturbanceRasters")
-
       }
 
+    },
+    plot = {
+      if (!is.null(sim$rstCurrentHarvest)) {
+        Plot(sim$rstCurrentHarvest, title = "Current Harvest", addTo = 'sim$rstCurrentHarvest')
+      }
+
+      if (!is.null(sim$rstCurrentBurn)) {
+        Plot(sim$rstCurrentBurn, title = "Current Burn", addTo = 'sim$rstCurrentBurn')
+      }
+
+      if (time(sim) < P(sim)$lastYear) {
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$.plotInterval, "historicalFireAndHarvest", "plot")
+      }
     },
 
     warning(paste("Undefined event type: '", current(sim)[1, "eventType", with = FALSE],
@@ -112,8 +118,7 @@ buildDisturbance <- function(sim) {
                                    studyArea = sim$studyArea,
                                    userTags = c("historicalFireAndHarvest", "harvest", time(sim)))
 
-    names(sim$rstCurrentHarvest) <- paste0("Year", time(sim))
-
+    names(sim$rstCurrentHarvest) <- paste0("Harvest", time(sim))
   }
 
   if (P(sim)$includeFire) {
@@ -122,7 +127,6 @@ buildDisturbance <- function(sim) {
     } else {
       valsToUse <- 1
     }
-
 
     sim$rstCurrentBurn <- Cache(reclassifyRasters,
                                 disturbanceType = sim$disturbanceType,
@@ -133,7 +137,7 @@ buildDisturbance <- function(sim) {
                                 studyArea = sim$studyArea,
                                 userTags = c("historicalFireAndHarvest", "burn", time(sim)))
 
-    names(sim$rstCurrentBurn) <- paste0("Year", time(sim))
+    names(sim$rstCurrentBurn) <- paste0("Burn", time(sim))
     }
 
   return(invisible(sim))
