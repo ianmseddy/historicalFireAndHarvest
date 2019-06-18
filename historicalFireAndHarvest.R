@@ -73,11 +73,11 @@ doEvent.historicalFireAndHarvest = function(sim, eventTime, eventType) {
     plot = {
 
       if (!is.null(sim$rstCurrentHarvest)) {
-        Plot(sim$rstCurrentHarvest, title = "Current Harvest", addTo = 'sim$rstCurrentHarvest')
+        Plot(sim$rstCurrentHarvest, col = c("grey", "green"), new = TRUE)
       }
 
       if (!is.null(sim$rstCurrentBurn)) {
-        Plot(sim$rstCurrentBurn, title = "Current Burn", addTo = 'sim$rstCurrentBurn', col = c("grey", "red"))
+        Plot(sim$rstCurrentBurn, col = c("grey", "red"), new = TRUE)
       }
 
       if (time(sim) < P(sim)$lastYear) {
