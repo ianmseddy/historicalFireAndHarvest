@@ -120,6 +120,7 @@ buildDisturbance <- function(sim) {
                                    userTags = c("historicalFireAndHarvest", "harvest", time(sim)))
 
     sim$rstCurrentHarvest@data@attributes <- list("Year" = time(sim))
+    names(sim$rstCurrentHarvest) <- NULL
   }
 
   if (P(sim)$includeFire) {
@@ -139,6 +140,7 @@ buildDisturbance <- function(sim) {
                                 userTags = c("historicalFireAndHarvest", "burn", time(sim)))
 
     sim$rstCurrentBurn@data@attributes <- list("Year" = time(sim))
+    names(sim$rstCurrentBurn) <- NULL
     }
 
   return(invisible(sim))
