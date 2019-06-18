@@ -59,7 +59,7 @@ doEvent.historicalFireAndHarvest = function(sim, eventTime, eventType) {
       sim <- scheduleEvent(sim, P(sim)$firstYear, "historicalFireAndHarvest", "buildDisturbanceRasters")
 
       sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "historicalFireAndHarvest", "plot")
-      Plot(sim$rasterToMatch)
+
 
     },
 
@@ -71,6 +71,7 @@ doEvent.historicalFireAndHarvest = function(sim, eventTime, eventType) {
 
     },
     plot = {
+
       if (!is.null(sim$rstCurrentHarvest)) {
         Plot(sim$rstCurrentHarvest, title = "Current Harvest", addTo = 'sim$rstCurrentHarvest')
       }
@@ -118,7 +119,7 @@ buildDisturbance <- function(sim) {
                                    studyArea = sim$studyArea,
                                    userTags = c("historicalFireAndHarvest", "harvest", time(sim)))
 
-    names(sim$rstCurrentHarvest) <- paste0("Harvest", time(sim))
+    sim$rstCurrentHarvest@data@attributes <- list("Year" = time(sim))
   }
 
   if (P(sim)$includeFire) {
@@ -137,7 +138,7 @@ buildDisturbance <- function(sim) {
                                 studyArea = sim$studyArea,
                                 userTags = c("historicalFireAndHarvest", "burn", time(sim)))
 
-    names(sim$rstCurrentBurn) <- paste0("Burn", time(sim))
+    sim$rstCurrentBurn@data@attributes <- list("Year" = time(sim))
     }
 
   return(invisible(sim))
