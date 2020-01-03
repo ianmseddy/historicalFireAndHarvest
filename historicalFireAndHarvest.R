@@ -199,23 +199,23 @@ reclassifyRasters <- function(disturbanceType, disturbanceYear, time, types, rtm
   }
 
   if (!suppliedElsewhere("disturbanceYear", sim)){
-    sim$disturbanceYear <- Cache(prepInputs, url = extractURL(objectName = "disturbanceYear", sim),
-                                 targetFile = "C2C_change_year_1985_2011.tif",
-                                 destinationPath = dPath,
-                                 studyArea = sim$studyArea,
-                                 filename2 = TRUE,
-                                 userTags = c("disturbanceYear", currentModule(sim)),
-                                 overwrite = TRUE)
+    sim$disturbanceYear <- prepInputs(url = extractURL(objectName = "disturbanceYear", sim),
+                                      targetFile = "C2C_change_year_1985_2011.tif",
+                                      destinationPath = dPath,
+                                      studyArea = sim$studyArea,
+                                      filename2 = TRUE,
+                                      userTags = c("disturbanceYear", currentModule(sim)),
+                                      useCache = TRUE)
   }
 
   if (!suppliedElsewhere("disturbanceType", sim)) {
 
-    sim$disturbanceType <- Cache(prepInputs, url = extractURL(objectName = "disturbanceType", sim),
-                                 targetFile = "C2C_change_type_1985_2011.tif",
-                                 destinationPath = dPath,
-                                 studyArea = sim$studyArea,
-                                 userTags = c("disturbanceType", currentModule(sim)),
-                                 overwrite = TRUE)
+    sim$disturbanceType <- prepInputs(url = extractURL(objectName = "disturbanceType", sim),
+                                      targetFile = "C2C_change_type_1985_2011.tif",
+                                      destinationPath = dPath,
+                                      studyArea = sim$studyArea,
+                                      userTags = c("disturbanceType", currentModule(sim)),
+                                      useCache = TRUE)
   }
 
   return(invisible(sim))
